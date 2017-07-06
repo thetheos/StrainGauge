@@ -6,6 +6,7 @@ int range=5;
 int sampleRate = 100;
 String buff;
 int temp;
+int delayTime = 50;
 
 String inputString = "";
 volatile boolean stringComplete = false;
@@ -13,6 +14,7 @@ volatile boolean stringComplete = false;
 bool set0 = true;
 bool set1 = true;
 bool set2 = true;
+bool set3 = true;
 
 int modeSetup = 0;
 int settingSelect = 0;
@@ -21,12 +23,13 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
   pinMode(pin, INPUT);
-  Serial.print("Select your mode : continuous reading mode(1), triger mode(2), triger mode settings(3)");
-  modeSelect=2;
+  Serial.println("Select your mode : continuous reading mode(1), triger mode(2), triger mode settings(3)");
   inputString.reserve(200);
+  
 }
 
 void loop() {
+  unsigned long startTime = millis();
   if(stringComplete == true && modeSetup == 0){
     temp = inputString.toInt();
     modeSelect = temp;
@@ -38,13 +41,17 @@ void loop() {
   }
   else if(modeSelect==1){
     val = analogRead(pin);
+    Serial.print(startTime);
+    Serial.print('\t');
     Serial.println(val);
+    delay(delayTime);
   }
   else if(modeSelect==2){
     triger();
   }
   else if(modeSelect == 3){
     trigerSetup();
+    
   }
   else {
     Serial.println("incorect input");
@@ -53,6 +60,7 @@ void loop() {
 }
 
 void triger(){
+  unsigned long startTime = millis();
   int val1 = analogRead(pin);
   delay(20);
   int val2 = analogRead(pin);
@@ -62,6 +70,8 @@ void triger(){
   if(valf>range || valf<-range){
     for(int i = 0; i<sampleRate; i++){
       int val = analogRead(pin);
+      Serial.print(startTime);
+      Serial.print('\t');
       Serial.println(val);
     }
   }
@@ -72,8 +82,8 @@ void triger(){
 }
 
 void trigerSetup(){
-  if(set0){
-    Serial.println("Triger setup mode: range setup(1), sample rate setup(2), quit(3)");
+  if(set0 && modeSetup == 0){
+    Serial.println("Triger setup mode: range setup(1), sample rate setup(2),delay setup(3), quit(4)");
     set0 = false;
     modeSetup = 1;
   }
@@ -90,7 +100,14 @@ void trigerSetup(){
   else if(settingSelect == 2)
     trigerSetupSampleRate();
   else if(settingSelect == 3)
+    delayTimeSetup();
+  else if(settingSelect == 4){
     modeSetup = 0;
+    Serial.println("Select your mode : continuous reading mode(1), triger mode(2), triger mode settings(3)");
+    settingSelect = 0;
+    modeSelect = 0;
+    set0 = true;
+  }   
   else
     Serial.println("incorrect input");
 }
@@ -99,7 +116,7 @@ void trigerSetupRange(){
    if(set1){
     Serial.print("Actual range: ");
     Serial.println(range);
-    Serial.println(" Set new range"); 
+    Serial.println("Set new range: "); 
     set1 = false;
     modeSetup = 2;
    }
@@ -119,7 +136,8 @@ void trigerSetupSampleRate(){
    if(set2){
     Serial.print("Actual SampleRate: ");
     Serial.println(sampleRate);
-    Serial.println(" Set new sampleRate"); 
+    Serial.println("Set new sampleRate: "); 
+     Serial.println("Triger setup mode: range setup(1), sample rate setup(2),delay setup(3), quit(4)");
     set2 = false;
     modeSetup = 2;
    }
@@ -128,6 +146,28 @@ void trigerSetupSampleRate(){
     sampleRate = temp;
     Serial.print("new sampleRate: ");
     Serial.println(sampleRate);
+     Serial.println("Triger setup mode: range setup(1), sample rate setup(2),delay setup(3), quit(4)");
+    inputString = "";
+    stringComplete = false;
+    modeSetup =1;
+    set0 = true;
+   }
+}
+
+void delayTimeSetup(){
+   if(set3){
+    Serial.print("Actual delay: ");
+    Serial.println(delayTime);
+    Serial.println("Set new delay: "); 
+    set3 = false;
+    modeSetup = 3;
+   }
+   if(stringComplete == true && modeSetup == 3){
+    temp = inputString.toInt();
+    delayTime = temp;
+    Serial.print("new delay: ");
+    Serial.println(delayTime);
+     Serial.println("Triger setup mode: range setup(1), sample rate setup(2),delay setup(3), quit(4)");
     inputString = "";
     stringComplete = false;
     modeSetup =1;
