@@ -1,7 +1,7 @@
 int val;
 int pin = 14;
 int inputBuf=0;
-int modeSelect = 0;
+int modeSelect = 1; //première couche
 int range=5;
 int sampleRate = 100;
 String buff;
@@ -16,7 +16,7 @@ bool set1 = true;
 bool set2 = true;
 bool set3 = true;
 
-int modeSetup = 0;
+int modeSetup = 0; //deuxième couche
 int settingSelect = 0;
 
 void setup() {
