@@ -10,8 +10,8 @@ plt.ion()
 
 buff = 0
 inputVal = ['0','0'] #obliger d'initialiser le tableau
-inputValInt = 0
-inputValInt1= 0
+inputValInt = []
+inputValInt1= []
 
 arduino = serial.Serial('COM4', 9600, timeout=1)
 fichier = open('data.txt', 'wb')
@@ -19,8 +19,8 @@ fichier = open('data.txt', 'wb')
 def plotValues():
 	plt.plot(inputValInt, inputValInt1, 'o-')
 	plt.grid(True)
-	plt.ylim(400,500)
-	plt.xlim(0,1500)
+	plt.ylim(300,500)
+
 	plt.show()
 	
 
@@ -36,8 +36,8 @@ while 1:
 		#print(inputValUtf[1])
 
 		try:
-			inputValInt = int(inputValUtf[0])
-			inputValInt1 = int(inputValUtf[1])
+			inputValInt.append(int(inputValUtf[0]))
+			inputValInt1.append(int(inputValUtf[1]))
 			#print(inputValInt1)
 		except:
 			print("")
