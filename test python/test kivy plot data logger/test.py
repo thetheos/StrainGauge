@@ -14,6 +14,7 @@ from kivy.uix.button import Button
 from kivy.uix.label import Label
 from functools import partial
 from kivy.uix.widget import Widget
+from kivy.uix.popup import Popup
 #matplotlib.use('Gtk')
 
 import numpy as np
@@ -32,6 +33,8 @@ Config.set('graphics', 'resizable','1')
 Config.write()
 import sys
 import glob
+
+import logging
 
 buff = 0
 inputVal = ['100','100'] #obliger d'initialiser le tableau
@@ -53,10 +56,18 @@ i= True
 
 class MyApp(App):
     def callback(self,instance):
+            self.searchSerialPorts()
+
+    def beginSerialCallback(self, instance):
         try:
-            self.beginSerial()
+            self.beginSerial(instance.text)
+            self.connectionStatus.text="Connected"
+            
         except:
-            print("Serial Connection Error")
+            self.connectionStatus.text="Connection error"
+            print("connection eror")
+
+    
     def callback1(self, instance):
         self.clearData()
 
@@ -75,7 +86,7 @@ class MyApp(App):
         self.fichier = open('data'+fileName+ '.txt', 'wb')
         self.box = FloatLayout(size = (300,300))
         self.box1 = BoxLayout()
-
+        self.serialPopup = Popup(title = 'Chose Serial port', content = Label(text = 'Choose serial port'),size_hint=(None, None), size =(400,400))
 
         self.plotter = FigureCanvasKivyAgg(plt.gcf(), size_hint = (0.75,0.6), pos_hint ={'center_x':.5, 'top':.97})
         self.button = Button(text="Begin Serial", font_size=14,size_hint = (.1,.1), pos_hint = {'left':1, 'bottom':1})
@@ -104,14 +115,29 @@ class MyApp(App):
         self.box1.add_widget(self.buttonSettingsMode)
 
         print("running")
-        print(self.serial_ports())
-
         return self.box
 
-    def beginSerial(self):
+    def searchSerialPorts(self):
+        print(self.serial_ports())
+        i=0
+        serialButton =[]
+        self.serialBox = BoxLayout(orientation = 'vertical')
+        self.connectionStatus = Label(text="choose port")
+        self.serialBox.add_widget(self.connectionStatus)
+        for ports in self.serial_ports(): 
+            serialButton.append(Button(text= ports, auto_dismiss = True ))
+            serialButton[i].bind(on_press=self.beginSerialCallback)
+            self.serialBox.add_widget(serialButton[i])
+            i+=1
+            print(ports)
+        self.serialPopup.content = self.serialBox
+        self.serialPopup.open()
+    
+    def beginSerial(self, serialPort):
+        #TODO::: Make an other button to stop serial Connection
         global i
         if i:
-            self.arduino = serial.Serial('COM4', 9600, timeout=1)
+            self.arduino = serial.Serial(serialPort, 9600, timeout=1)
             self.updateAnimate = Clock.schedule_interval(self.animate,0)
             print("Serial connection error")
             print(i)
