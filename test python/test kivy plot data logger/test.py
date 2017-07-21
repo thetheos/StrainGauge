@@ -41,33 +41,77 @@ inputVal = ['100','100'] #obliger d'initialiser le tableau
 inputValInt = [0,10]
 inputValInt1= [0,10]
 inputValUtf = [0,0]
-aquisitionTime= 1000 #ddefault 1000, 
+aquisitionTime= 1000 #default 1000, Set the delta scale for the x axis
 inputMaxVal = 0
 inputMaxValStr = "max: NaN"
-i= True
+lastComPort = ""
 
 
+
+loggingFormat =logging.Formatter('%(asctime)s -- %(levelname)s -- %(funcName)s -- %(lineno)d -- %(message)s')
+
+handler_info = logging.StreamHandler()
+
+handler_info.setFormatter(loggingFormat)
+
+handler_info.setLevel(logging.INFO)
+
+logger = logging.getLogger("__name__")
+logger.setLevel(logging.INFO)
+logger.addHandler(handler_info)
 
 
             
 
+#TODO it is saying connection error when begin serial and click on the port
+#TODO the popup window must automatically close when we press a button or
+#try to close the Serial connection before connecting to the port
+#TODO add a checkbox for the data logging and maybe add a fille explorer
+#to define the storage
+#TODO setup a second layout with the command to the arduino
+#TODO add a connection verigication with the arduino to be sure it is the
+#arduino and not an other device
+#TODO modify the layouts to make it mych "nicer"
+#TODO add an auto connect with the log of the last comport used
+#in a config text file. Easyer to use.
+#TODO Add a gunction to clear the data when the arduino is deconected or
+#manually resetted
+#TODO add an other logger for critic and error level to log into a file
+#TODO make it portable on android
+#TODO try to solve the glitch problem on startup
+#TODO write a md file for installation
+#TODO try to solve runTime event error when close
+#TODO add the oportunity to set a specific file name for the data file
+#TODO add a setting menu as well for kivy than for the arduino to setup 
+#eeprom value.
+#TODO on arduino change the settings variable to eeprom variable
 
         
 
 class MyApp(App):
-    def callback(self,instance):
+    def callbackSearchSerialPort(self,instance):
             self.searchSerialPorts()
 
     def beginSerialCallback(self, instance):
+        global lastComPort
         try:
             self.beginSerial(instance.text)
+            lastComPort = instance.text
+            logger.info("last com port: %s", lastComPort)
             self.connectionStatus.text="Connected"
+            logger.info("Serial connected to %s", instance.text)
+            self.buttonBeginSerial.disabled = True
             
         except:
             self.connectionStatus.text="Connection error"
-            print("connection eror")
+            logger.error("Serial connection error")
 
-    
+    def callbackStopSerial(self, instance):
+        self.stopSerial()
+
+    def callbackResetSerial(self, instance):
+        self.resetSerialConnection()
+
     def callback1(self, instance):
         self.clearData()
 
@@ -82,15 +126,19 @@ class MyApp(App):
 
     def build(self):
         self.buildPlot()
-        fileName = time.strftime("%Y-%m-%d_%H-%M-%S")
-        self.fichier = open('data'+fileName+ '.txt', 'wb')
+        
         self.box = FloatLayout(size = (300,300))
         self.box1 = BoxLayout()
         self.serialPopup = Popup(title = 'Chose Serial port', content = Label(text = 'Choose serial port'),size_hint=(None, None), size =(400,400))
 
         self.plotter = FigureCanvasKivyAgg(plt.gcf(), size_hint = (0.75,0.6), pos_hint ={'center_x':.5, 'top':.97})
-        self.button = Button(text="Begin Serial", font_size=14,size_hint = (.1,.1), pos_hint = {'left':1, 'bottom':1})
-        self.button.bind(on_press= self.callback)
+        self.buttonBeginSerial = Button(text="Begin Serial", font_size=14,size_hint = (.1,.1), pos_hint = {'left':1, 'bottom':1})
+        self.buttonBeginSerial.bind(on_press= self.callbackSearchSerialPort)
+        self.buttonStopSerial = Button(text= "Stop Serial", font_size= 14, size_hint=(.1,.1), pos_hint= {'center_x':.5, 'bottom':1})
+        self.buttonStopSerial.bind(on_press= self.callbackStopSerial)
+        self.buttonResetSerial = Button(text= "Reset Serial", font_size= 14, size_hint=(.1,.1), pos_hint= {'center_x':.75, 'bottom':1})
+        self.buttonResetSerial.bind(on_press= self.callbackResetSerial)
+
         self.buttonWippeDate = Button(text = "wippe data", font_size=14, size_hint=(0.1,0.1), pos_hint = {'right':1, 'bottom':1})
         self.buttonWippeDate.bind(on_press=self.callback1)
         self.maxLabel= Label(text="max: NaN",font_size=48,pos_hint = {'center_x':.5, 'top':.8})
@@ -103,9 +151,11 @@ class MyApp(App):
         
         self.buttonSettingsMode = Button(text = "Settings mode", font_size = 14, size_hint=(.1,.1))
         self.buttonSettingsMode.bind(on_press=self.settingsCallback)
-        i =True
+    
         self.box.add_widget(self.plotter)
-        self.box.add_widget(self.button)
+        self.box.add_widget(self.buttonBeginSerial)
+        self.box.add_widget(self.buttonStopSerial)
+        self.box.add_widget(self.buttonResetSerial)
         self.box.add_widget(self.buttonWippeDate)
         self.box.add_widget(self.maxLabel)
         self.box.add_widget(self.serialInput)
@@ -114,11 +164,20 @@ class MyApp(App):
         self.box1.add_widget(self.buttonTriggerMode)
         self.box1.add_widget(self.buttonSettingsMode)
 
-        print("running")
+        logger.info("running")
         return self.box
 
+    def createDataFile(self, fileName=time.strftime("%Y-%m-%d_%H-%M-%S")):
+        """generate a file to log the data with as filename the date and time
+        """
+        self.fichier = open('data'+fileName+ '.txt', 'wb')
+
     def searchSerialPorts(self):
-        print(self.serial_ports())
+        """
+            search serial ports and open a popup window in kivy the select the ports.
+            The buttons are automatically created in functions of the number of ports
+        """
+        logger.info('%s',self.serial_ports())
         i=0
         serialButton =[]
         self.serialBox = BoxLayout(orientation = 'vertical')
@@ -129,30 +188,49 @@ class MyApp(App):
             serialButton[i].bind(on_press=self.beginSerialCallback)
             self.serialBox.add_widget(serialButton[i])
             i+=1
-            print(ports)
+            #print(ports)
         self.serialPopup.content = self.serialBox
         self.serialPopup.open()
     
     def beginSerial(self, serialPort):
-        #TODO::: Make an other button to stop serial Connection
-        global i
-        if i:
-            self.arduino = serial.Serial(serialPort, 9600, timeout=1)
-            self.updateAnimate = Clock.schedule_interval(self.animate,0)
-            print("Serial connection error")
-            print(i)
-            self.button.text= "Stop serial"
-            i = False
-        else:
-            self.clearData()
-            Clock.unschedule(self.updateAnimate)
+        """
+            Begin serial connection and create data logging file
+        """
+        self.arduino = serial.Serial(serialPort, 9600, timeout=1)
+        self.createDataFile(fileName=time.strftime("%Y-%m-%d_%H-%M-%S"))
+        self.updateAnimate = Clock.schedule_interval(self.animate,0)
+
+    
+    def stopSerial(self):
+        """
+            Stop serial connection and Stop the data logging
+        """
+        self.clearData()
+        try:
             self.arduino.close()
-            print(i)
-            self.button.text = "Begin serial"
-            
-            i= True
+            self.fichier.close()
+            Clock.unschedule(self.updateAnimate)
+            logger.info("Serial connection stopped")
+            self.buttonBeginSerial.disabled = False
+        except:
+            logger.warning("Begin Serial before stopping it")
+
+    def resetSerialConnection(self):
+        global lastComPort
+        try:
+            self.stopSerial()
+            logger.info('lCp %s', lastComPort)
+            self.beginSerial(lastComPort)
+            logger.info("Serial connection resetted")
+        except:
+            logger.warning("Begin Serial before resetting it")
+
+
 
     def buildPlot(self):
+        """
+            Set desing for the plot and use the aquisitions lists to plot.
+        """
         style.use('fivethirtyeight')
         self.fig = plt.figure()
         self.ax1 = self.fig.add_subplot(1,1,1)
@@ -160,27 +238,42 @@ class MyApp(App):
         self.ax1.plot(inputValInt,inputValInt1)
 
     def clearData(self):
+        """
+            Wippe the aquisitions lists for the plotting
+        """
         global inputMaxVal
-
         del inputValInt[:]
         del inputValInt1[:]
         inputMaxVal = 0
         self.maxLabel.text = "max: NaN"
-        print("data wipped")
+        logger.info("data wipped")
 
 
     def animate(self,dt):
+        """
+            Update the plotting with the 2 lists inputValInt and inputValInt1.
+            Change the scale of x axis by modifying constantly the set_xlim.
+
+        """
         self.ax1.clear()
         self.ax1.plot(inputValInt,inputValInt1)
         try:
             last = len(inputValInt)
             lastVal = inputValInt[last-1]
-            self.ax1.set_xlim([0+lastVal-aquisitionTime  ,lastVal]   ) #comment for no x axis mouvement
+            self.ax1.set_xlim([0+lastVal-aquisitionTime  ,lastVal]) #comment for no x axis mouvement. Aquisition time is for the scale delta
         except:
-            print("")
+            last = 0
+            logger.warning("unable to get correct input val")
         self.get_data()  
 
     def get_data(self):
+        """
+            While serial connection is available, it prints readline(to file and monitor), decode it and create 2 list: each contains respectivelly x and y.
+            In this case inputValInt is the x axis for time(ms) and inputValInt1 is the y axis for the analogRead
+            The lists contains all the data that has been read.. And it is used for the plotting.
+            The serial input must be 2 values separated by a tab (\n) and must end with the endline character (\n).
+
+         """
         global inputValUtf
         global inputMaxVal
         global inputMaxValStr
@@ -203,12 +296,12 @@ class MyApp(App):
                     inputMaxValStr = inputValUtf[1]
                     self.maxLabel.text = 'max: '+inputMaxValStr
             except:
-                print("")   
+                logger.warning("unable to convert to utf-8")   
             try:
                 inputValInt.append(int(inputValUtf[0]))
                 inputValInt1.append(int(inputValUtf[1]))
             except:
-                print("")
+                logger.warning("unable to convert to int")
 
 
             self.fichier.write(buff)
