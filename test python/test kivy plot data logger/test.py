@@ -11,6 +11,7 @@ from kivy.uix.floatlayout import FloatLayout
 import kivy.uix.layout 
 from kivy.garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
 from kivy.uix.button import Button
+from kivy.uix.checkbox import CheckBox
 from kivy.uix.label import Label
 from functools import partial
 from kivy.uix.widget import Widget
@@ -45,7 +46,7 @@ aquisitionTime= 1000 #default 1000, Set the delta scale for the x axis
 inputMaxVal = 0
 inputMaxValStr = "max: NaN"
 lastComPort = ""
-
+dataFileCheckBoxState = 0
 
 
 loggingFormat =logging.Formatter('%(asctime)s -- %(levelname)s -- %(funcName)s -- %(lineno)d -- %(message)s')
@@ -63,9 +64,8 @@ logger.addHandler(handler_info)
 
             
 
-#TODO it is saying connection error when begin serial and click on the port
-#TODO the popup window must automatically close when we press a button or
-#try to close the Serial connection before connecting to the port
+
+
 #TODO add a checkbox for the data logging and maybe add a fille explorer
 #to define the storage
 #TODO setup a second layout with the command to the arduino
@@ -94,6 +94,7 @@ class MyApp(App):
 
     def beginSerialCallback(self, instance):
         global lastComPort
+        self.stopSerial()
         try:
             self.beginSerial(instance.text)
             lastComPort = instance.text
@@ -101,6 +102,8 @@ class MyApp(App):
             self.connectionStatus.text="Connected"
             logger.info("Serial connected to %s", instance.text)
             self.buttonBeginSerial.disabled = True
+            self.checkBoxDataLogging.disabled = True
+            self.serialPopup.dismiss()
             
         except:
             self.connectionStatus.text="Connection error"
@@ -111,6 +114,10 @@ class MyApp(App):
 
     def callbackResetSerial(self, instance):
         self.resetSerialConnection()
+
+    def on_checkbox_active(self, checkbox, value):
+        global dataFileCheckBoxState
+        dataFileCheckBoxState = value
 
     def callback1(self, instance):
         self.clearData()
@@ -146,6 +153,9 @@ class MyApp(App):
         self.buttonContinuousMode = Button(text = "Continuous mode", font_size = 14, size_hint=(.1,.1))
         self.buttonContinuousMode.bind(on_press=self.continuousCallback)
         
+        self.checkBoxDataLogging = CheckBox(size_hint = (.1,.1),pos_hint={'center_x':.25, 'bottom':1})
+        self.checkBoxDataLogging.bind(active = self.on_checkbox_active)
+
         self.buttonTriggerMode = Button(text = "Trigger mode", font_size = 14, size_hint=(.1,.1))
         self.buttonTriggerMode.bind(on_press=self.triggerCallback)
         
@@ -159,6 +169,7 @@ class MyApp(App):
         self.box.add_widget(self.buttonWippeDate)
         self.box.add_widget(self.maxLabel)
         self.box.add_widget(self.serialInput)
+        self.box.add_widget(self.checkBoxDataLogging)
 
         self.box1.add_widget(self.buttonContinuousMode)
         self.box1.add_widget(self.buttonTriggerMode)
@@ -196,8 +207,10 @@ class MyApp(App):
         """
             Begin serial connection and create data logging file
         """
+        global dataFileCheckBoxState
         self.arduino = serial.Serial(serialPort, 9600, timeout=1)
-        self.createDataFile(fileName=time.strftime("%Y-%m-%d_%H-%M-%S"))
+        if dataFileCheckBoxState:
+            self.createDataFile(fileName=time.strftime("%Y-%m-%d_%H-%M-%S"))
         self.updateAnimate = Clock.schedule_interval(self.animate,0)
 
     
@@ -205,13 +218,16 @@ class MyApp(App):
         """
             Stop serial connection and Stop the data logging
         """
+        global dataFileCheckBoxState
         self.clearData()
         try:
             self.arduino.close()
-            self.fichier.close()
+            if dataFileCheckBoxState:
+                self.fichier.close()
             Clock.unschedule(self.updateAnimate)
             logger.info("Serial connection stopped")
             self.buttonBeginSerial.disabled = False
+            self.checkBoxDataLogging.disabled = False
         except:
             logger.warning("Begin Serial before stopping it")
 
