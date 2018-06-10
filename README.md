@@ -1,3 +1,5 @@
+View this project on [CADLAB.io](https://cadlab.io/project/1158). 
+
 # StrainGauge
 
 Here is a proto shield for arduino uno to easily mount strain gauges. It uses the pin A1 to read the output of the instrumental
